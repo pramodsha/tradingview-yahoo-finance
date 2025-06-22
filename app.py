@@ -17,53 +17,65 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize database
 db.init_app(app)
 
-def fetch_yahoo_data(ticker, interval, ema_period=20, rsi_period=14):
-    ticker = yf.Ticker(ticker)
 
-    end_date = datetime.now()
-    if interval in ['1m', '5m']:
-        start_date = end_date - timedelta(days=7)
-    elif interval in ['15m', '60m']:
-        start_date = end_date - timedelta(days=60)
-    elif interval == '1d':
-        start_date = end_date - timedelta(days=365*5)
-    elif interval == '1wk':
-        start_date = end_date - timedelta(weeks=365*5)
-    elif interval == '1mo':
-        start_date = end_date - timedelta(days=365*5)
 
-    data = ticker.history(start=start_date, end=end_date, interval=interval)
-    data['EMA'] = ta.ema(data['Close'], length=ema_period)
-    data['RSI'] = ta.rsi(data['Close'], length=rsi_period)
 
+CSV_FOLDER = 'data'
+
+def fetch_csv_data(ticker, interval='1m', ema_period=20, rsi_period=14):
+    file_path = os.path.join(CSV_FOLDER, f"{ticker}_1min.csv")
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"CSV not found: {file_path}")
+
+    df = pd.read_csv(file_path, parse_dates=['timestamp'])
+    df.set_index('timestamp', inplace=True)
+    df = df[['open', 'high', 'low', 'close', 'volume']]
+
+    # Determine if resampling is needed
+    if interval != '1m':
+        pandas_interval = interval.replace('m', 'T').replace('h', 'H').replace('d', 'D')
+        df = df.resample(pandas_interval).agg({
+            'open': 'first',
+            'high': 'max',
+            'low': 'min',
+            'close': 'last',
+            'volume': 'sum'
+        }).dropna()
+
+    # Compute indicators
+    df['EMA'] = ta.ema(df['close'], length=ema_period)
+    df['RSI'] = ta.rsi(df['close'], length=rsi_period)
+
+    # Format for frontend
     candlestick_data = [
         {
-            'time': int(row.Index.timestamp()),
-            'open': row.Open,
-            'high': row.High,
-            'low': row.Low,
-            'close': row.Close
+            'time': int(ts.timestamp()),
+            'open': row.open,
+            'high': row.high,
+            'low': row.low,
+            'close': row.close
         }
-        for row in data.itertuples()
+        for ts, row in df.iterrows()
     ]
 
     ema_data = [
         {
-            'time': int(row.Index.timestamp()),
+            'time': int(ts.timestamp()),
             'value': row.EMA
         }
-        for row in data.itertuples() if not pd.isna(row.EMA)
+        for ts, row in df.iterrows() if not pd.isna(row.EMA)
     ]
 
     rsi_data = [
         {
-            'time': int(row.Index.timestamp()),
-            'value': row.RSI if not pd.isna(row.RSI) else 0  # Convert NaN to zero
+            'time': int(ts.timestamp()),
+            'value': row.RSI if not pd.isna(row.RSI) else 0
         }
-        for row in data.itertuples()
+        for ts, row in df.iterrows()
     ]
 
     return candlestick_data, ema_data, rsi_data
+
 
 @app.route('/')
 def index():
@@ -71,7 +83,7 @@ def index():
 
 @app.route('/api/data/<ticker>/<interval>/<int:ema_period>/<int:rsi_period>')
 def get_data(ticker, interval, ema_period, rsi_period):
-    candlestick_data, ema_data, rsi_data = fetch_yahoo_data(ticker, interval, ema_period, rsi_period)
+    candlestick_data, ema_data, rsi_data = fetch_csv_data(ticker, interval, ema_period, rsi_period)
     return jsonify({'candlestick': candlestick_data, 'ema': ema_data, 'rsi': rsi_data})
 
 # Create database tables on startup if they don't exist
