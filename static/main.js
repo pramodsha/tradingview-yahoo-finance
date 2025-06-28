@@ -116,6 +116,26 @@ const rsiLine = rsiChart.addSeries(
     { color: 'red', lineWidth: 2}
 );
 
+document.getElementById('goToDateBtn').addEventListener('click', () => {
+    const input = document.getElementById('goToDate').value;
+    if (!input) return;
+
+    const selectedTime = new Date(input); // This is already in local time (IST)
+
+    const ts = Math.floor(selectedTime.getTime() / 1000); // Convert to epoch in seconds
+
+    const barsToShow = 500;  // Adjust this to control zoom level
+    const frame = 3600;       // 1m = 60s; change to 5 for 5s, 300 for 5m, etc.
+
+    const from = ts - barsToShow * frame;
+    const to = ts + barsToShow * frame;
+
+    chart.timeScale().setVisibleRange({ from, to });
+    rsiChart.timeScale().setVisibleRange({ from, to });
+});
+
+
+
 let autoUpdateInterval;
 
 // Fetch data function
