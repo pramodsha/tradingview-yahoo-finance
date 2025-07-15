@@ -17,23 +17,33 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize database
 db.init_app(app)
 
-
-
-
 CSV_FOLDER = 'data'
 
 def fetch_csv_data(ticker, interval='1m', ema_period=20, rsi_period=14):
-    file_path = os.path.join(CSV_FOLDER, f"{ticker}_1min.csv")
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"CSV not found: {file_path}")
+    base_paths = [
+        os.path.join(CSV_FOLDER, f"{ticker}_1min.csv"),
+        os.path.join(CSV_FOLDER, f"{ticker}_5S.csv")
+    ]
+
+    file_path = None
+    for path in base_paths:
+        if os.path.exists(path):
+            file_path = path
+            break
+
+    if not file_path:
+        raise FileNotFoundError(f"CSV not found for ticker: {ticker}")
 
     df = pd.read_csv(file_path, parse_dates=['timestamp'])
     df.set_index('timestamp', inplace=True)
     df = df[['open', 'high', 'low', 'close', 'volume']]
 
-    # Determine if resampling is needed
-    if interval != '1m':
-        pandas_interval = interval.replace('m', 'T').replace('h', 'H').replace('d', 'D')
+    # Limit to recent rows for performance (for 5s: ~4h of data)
+    df = df.tail(3000)
+
+    # Resample only if the interval is not native
+    if interval not in [ '5s']:
+        pandas_interval = interval.replace('s', 'S').replace('m', 'T').replace('h', 'H').replace('d', 'D')
         df = df.resample(pandas_interval).agg({
             'open': 'first',
             'high': 'max',
@@ -42,7 +52,7 @@ def fetch_csv_data(ticker, interval='1m', ema_period=20, rsi_period=14):
             'volume': 'sum'
         }).dropna()
 
-    # Compute indicators
+    # Indicators
     df['EMA'] = ta.ema(df['close'], length=ema_period)
     df['RSI'] = ta.rsi(df['close'], length=rsi_period)
 
@@ -54,27 +64,82 @@ def fetch_csv_data(ticker, interval='1m', ema_period=20, rsi_period=14):
             'high': row.high,
             'low': row.low,
             'close': row.close
-        }
-        for ts, row in df.iterrows()
+        } for ts, row in df.iterrows()
     ]
 
     ema_data = [
         {
             'time': int(ts.timestamp()),
             'value': row.EMA
-        }
-        for ts, row in df.iterrows() if not pd.isna(row.EMA)
+        } for ts, row in df.iterrows() if not pd.isna(row.EMA)
     ]
 
     rsi_data = [
         {
             'time': int(ts.timestamp()),
             'value': row.RSI if not pd.isna(row.RSI) else 0
-        }
-        for ts, row in df.iterrows()
+        } for ts, row in df.iterrows()
     ]
 
-    return candlestick_data, ema_data, rsi_data
+
+    return candlestick_data, ema_data, rsi_data, 
+ 
+
+# CSV_FOLDER = 'data'
+
+# def fetch_csv_data(ticker, interval='1m', ema_period=20, rsi_period=14):
+#     file_path = os.path.join(CSV_FOLDER, f"{ticker}_1min.csv")
+#     if not os.path.exists(file_path):
+#         raise FileNotFoundError(f"CSV not found: {file_path}")
+
+#     df = pd.read_csv(file_path, parse_dates=['timestamp'])
+#     df.set_index('timestamp', inplace=True)
+#     df = df[['open', 'high', 'low', 'close', 'volume']]
+
+#     # Determine if resampling is needed
+#     if interval != '1m':
+#         pandas_interval = interval.replace('m', 'T').replace('h', 'H').replace('d', 'D')
+#         df = df.resample(pandas_interval).agg({
+#             'open': 'first',
+#             'high': 'max',
+#             'low': 'min',
+#             'close': 'last',
+#             'volume': 'sum'
+#         }).dropna()
+
+#     # Compute indicators
+#     df['EMA'] = ta.ema(df['close'], length=ema_period)
+#     df['RSI'] = ta.rsi(df['close'], length=rsi_period)
+
+#     # Format for frontend
+#     candlestick_data = [
+#         {
+#             'time': int(ts.timestamp()),
+#             'open': row.open,
+#             'high': row.high,
+#             'low': row.low,
+#             'close': row.close
+#         }
+#         for ts, row in df.iterrows()
+#     ]
+
+#     ema_data = [
+#         {
+#             'time': int(ts.timestamp()),
+#             'value': row.EMA
+#         }
+#         for ts, row in df.iterrows() if not pd.isna(row.EMA)
+#     ]
+
+#     rsi_data = [
+#         {
+#             'time': int(ts.timestamp()),
+#             'value': row.RSI if not pd.isna(row.RSI) else 0
+#         }
+#         for ts, row in df.iterrows()
+#     ]
+
+#     return candlestick_data, ema_data, rsi_data
 
 
 @app.route('/')
@@ -122,15 +187,17 @@ def get_symbols():
 
     for symbol in symbols:
         ticker = symbol.ticker
-        csv_path = os.path.join(CSV_FOLDER, f"{ticker}_1min.csv")
         price = 0
 
-        if os.path.exists(csv_path):
-            try:
+        for suffix in ['1min', '5S']:
+            csv_path = os.path.join(CSV_FOLDER, f"{ticker}_{suffix}.csv")
+            if os.path.exists(csv_path):
+             try:
                 df = pd.read_csv(csv_path)
                 if not df.empty and 'close' in df.columns:
                     price = float(df['close'].iloc[-1])
-            except Exception as e:
+                    break  # Exit after first successful load
+             except Exception as e:
                 print(f"Error reading {csv_path}: {e}")
 
         results.append({
