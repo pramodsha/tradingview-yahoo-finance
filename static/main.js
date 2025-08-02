@@ -32,7 +32,7 @@ const chartOptions1 = {
         },
     },
     timeScale: {
-        visible: false,
+        visible: true,
         borderColor: isDarkMode ? '#374151' : '#e5e7eb',
         timeVisible: true,
         secondsVisible: false,
@@ -48,51 +48,51 @@ const chartOptions1 = {
     height: document.getElementById('chart').clientHeight,
 };
 
-const chartOptions2 = {
-    layout: {
-        background: { type: 'solid', color: isDarkMode ? '#111827' : 'white' },
-        textColor: isDarkMode ? '#f3f4f6' : '#1f2937',
-        fontFamily: 'Inter, sans-serif',
-    },
-    grid: {
-        vertLines: {
-            color: isDarkMode ? 'rgba(55, 65, 81, 0.5)' : 'rgba(229, 231, 235, 0.8)',
-            style: 1,
-        },
-        horzLines: {
-            color: isDarkMode ? 'rgba(55, 65, 81, 0.5)' : 'rgba(229, 231, 235, 0.8)',
-            style: 1,
-        },
-    },
-    crosshair: {
-        mode: LightweightCharts.CrosshairMode.Normal,
-        vertLine: {
-            color: isDarkMode ? 'rgba(156, 163, 175, 0.5)' : 'rgba(75, 85, 99, 0.3)',
-            width: 1,
-            style: 2,
-        },
-        horzLine: {
-            color: isDarkMode ? 'rgba(156, 163, 175, 0.5)' : 'rgba(75, 85, 99, 0.3)',
-            width: 1,
-            style: 2,
-        },
-    },
-    timeScale: {
-        visible: true,
-        borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-        timeVisible: true,
-        secondsVisible: false,
-    },
-    rightPriceScale: {
-        borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-        scaleMargins: {
-            top: 0.1, 
-            bottom: 0.2,
-        },
-    },
-    width: document.getElementById('chart').clientWidth,
-    height: document.getElementById('rsiChart').clientHeight,
-};
+// const chartOptions2 = {
+//     layout: {
+//         background: { type: 'solid', color: isDarkMode ? '#111827' : 'white' },
+//         textColor: isDarkMode ? '#f3f4f6' : '#1f2937',
+//         fontFamily: 'Inter, sans-serif',
+//     },
+//     grid: {
+//         vertLines: {
+//             color: isDarkMode ? 'rgba(55, 65, 81, 0.5)' : 'rgba(229, 231, 235, 0.8)',
+//             style: 1,
+//         },
+//         horzLines: {
+//             color: isDarkMode ? 'rgba(55, 65, 81, 0.5)' : 'rgba(229, 231, 235, 0.8)',
+//             style: 1,
+//         },
+//     },
+//     crosshair: {
+//         mode: LightweightCharts.CrosshairMode.Normal,
+//         vertLine: {
+//             color: isDarkMode ? 'rgba(156, 163, 175, 0.5)' : 'rgba(75, 85, 99, 0.3)',
+//             width: 1,
+//             style: 2,
+//         },
+//         horzLine: {
+//             color: isDarkMode ? 'rgba(156, 163, 175, 0.5)' : 'rgba(75, 85, 99, 0.3)',
+//             width: 1,
+//             style: 2,
+//         },
+//     },
+//     timeScale: {
+//         visible: true,
+//         borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+//         timeVisible: true,
+//         secondsVisible: false,
+//     },
+//     rightPriceScale: {
+//         borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+//         scaleMargins: {
+//             top: 0.1, 
+//             bottom: 0.2,
+//         },
+//     },
+//     width: document.getElementById('chart').clientWidth,
+//     height: document.getElementById('rsiChart').clientHeight,
+// };
 
 const chart = LightweightCharts.createChart(document.getElementById('chart'), chartOptions1);
 const candlestickSeries = chart.addSeries(
@@ -105,16 +105,16 @@ const candlestickSeries = chart.addSeries(
       wickDownColor: '#ef5350',
     }
 );
-const emaLine = chart.addSeries(
-    LightweightCharts.LineSeries,
-    { color: 'blue', lineWidth: 2 }
-);
+// const emaLine = chart.addSeries(
+//     LightweightCharts.LineSeries,
+//     { color: 'blue', lineWidth: 2 }
+// );
 
-const rsiChart = LightweightCharts.createChart(document.getElementById('rsiChart'),chartOptions2);
-const rsiLine = rsiChart.addSeries(
-    LightweightCharts.LineSeries,
-    { color: 'red', lineWidth: 2}
-);
+// const rsiChart = LightweightCharts.createChart(document.getElementById('rsiChart'),chartOptions2);
+// const rsiLine = rsiChart.addSeries(
+//     LightweightCharts.LineSeries,
+//     { color: 'red', lineWidth: 2}
+// );
 
 document.getElementById('goToDateBtn').addEventListener('click', () => {
     const input = document.getElementById('goToDate').value;
@@ -131,7 +131,7 @@ document.getElementById('goToDateBtn').addEventListener('click', () => {
     const to = ts + barsToShow * frame;
 
     chart.timeScale().setVisibleRange({ from, to });
-    rsiChart.timeScale().setVisibleRange({ from, to });
+    // rsiChart.timeScale().setVisibleRange({ from, to });
 });
 
 
@@ -139,13 +139,38 @@ document.getElementById('goToDateBtn').addEventListener('click', () => {
 let autoUpdateInterval;
 
 // Fetch data function
-function fetchData(ticker, timeframe, emaPeriod, rsiPeriod) {
-    fetch(`/api/data/${ticker}/${timeframe}/${emaPeriod}/${rsiPeriod}`)
+function fetchData(ticker, timeframe) {
+    fetch(`/api/data/${ticker}/${timeframe}`)
         .then(response => response.json())
         .then(data => {
             candlestickSeries.setData(data.candlestick);
-            emaLine.setData(data.ema);
-            rsiLine.setData(data.rsi);
+            
+                const tooltip = document.getElementById('ohlc-tooltip');
+
+                chart.subscribeCrosshairMove((param) => {
+                    if (!param || !param.time || !param.seriesData) {
+                        tooltip.style.display = 'none';
+                        return;
+                    }
+
+                    const d = param.seriesData.get(candlestickSeries);
+                    if (!d) {
+                        tooltip.style.display = 'none';
+                        return;
+                    }
+
+                    const { open, high, low, close } = d;
+
+                    tooltip.innerHTML = `<strong>O</strong>: ${open} &nbsp; 
+                     <strong>H</strong>: ${high} &nbsp; 
+                     <strong>L</strong>: ${low} &nbsp; 
+                     <strong>C</strong>: ${close}
+                     `;
+
+                    tooltip.style.display = 'block';
+                });
+
+            
 
             
         })
@@ -156,7 +181,7 @@ function fetchData(ticker, timeframe, emaPeriod, rsiPeriod) {
 
 // Fetch NVDA data on page load with default timeframe (daily), EMA period (20) and RSI period (14)
 window.addEventListener('load', () => {
-    fetchData('NVDA', '1d', 20, 14);
+    fetchData('NIFTY2570325400CE', '5m');
     loadWatchlist();
 });
 
@@ -164,9 +189,9 @@ window.addEventListener('load', () => {
 document.getElementById('fetchData').addEventListener('click', () => {
     const ticker = document.getElementById('ticker').value;
     const timeframe = document.getElementById('timeframe').value;
-    const emaPeriod = document.getElementById('emaPeriod').value;
-    const rsiPeriod = document.getElementById('rsiPeriod').value;
-    fetchData(ticker, timeframe, emaPeriod, rsiPeriod);
+    // const emaPeriod = document.getElementById('emaPeriod').value;
+    // const rsiPeriod = document.getElementById('rsiPeriod').value;
+    fetchData(ticker, timeframe);
 });
 
 // Handle auto-update functionality
@@ -176,9 +201,9 @@ document.getElementById('autoUpdate').addEventListener('change', (event) => {
         autoUpdateInterval = setInterval(() => {
             const ticker = document.getElementById('ticker').value;
             const timeframe = document.getElementById('timeframe').value;
-            const emaPeriod = document.getElementById('emaPeriod').value;
-            const rsiPeriod = document.getElementById('rsiPeriod').value;
-            fetchData(ticker, timeframe, emaPeriod, rsiPeriod);
+            // const emaPeriod = document.getElementById('emaPeriod').value;
+            // const rsiPeriod = document.getElementById('rsiPeriod').value;
+            fetchData(ticker, timeframe);
         }, frequency);
     } else {
         clearInterval(autoUpdateInterval);
@@ -188,7 +213,7 @@ document.getElementById('autoUpdate').addEventListener('change', (event) => {
 // Handle window resize
 window.addEventListener('resize', () => {
     chart.resize(document.getElementById('chart').clientWidth, document.getElementById('chart').clientHeight);
-    rsiChart.resize(document.getElementById('rsiChart').clientWidth, document.getElementById('rsiChart').clientHeight);
+    // rsiChart.resize(document.getElementById('rsiChart').clientWidth, document.getElementById('rsiChart').clientHeight);
 });
 
 // Theme toggle functionality for DaisyUI
@@ -225,26 +250,26 @@ document.getElementById('themeToggle').addEventListener('click', () => {
             },
         });
         
-        rsiChart.applyOptions({
-            layout: {
-                background: { type: 'solid', color: '#1f2937' },
-                textColor: '#f3f4f6',
-            },
-            grid: {
-                vertLines: {
-                    color: 'rgba(55, 65, 81, 0.5)',
-                },
-                horzLines: {
-                    color: 'rgba(55, 65, 81, 0.5)',
-                },
-            },
-            rightPriceScale: {
-                borderColor: '#374151',
-            },
-            timeScale: {
-                borderColor: '#374151',
-            },
-        });
+        // rsiChart.applyOptions({
+        //     layout: {
+        //         background: { type: 'solid', color: '#1f2937' },
+        //         textColor: '#f3f4f6',
+        //     },
+        //     grid: {
+        //         vertLines: {
+        //             color: 'rgba(55, 65, 81, 0.5)',
+        //         },
+        //         horzLines: {
+        //             color: 'rgba(55, 65, 81, 0.5)',
+        //         },
+        //     },
+        //     rightPriceScale: {
+        //         borderColor: '#374151',
+        //     },
+        //     timeScale: {
+        //         borderColor: '#374151',
+        //     },
+        // });
     } else {
         // Switch to light theme
         document.body.setAttribute('data-theme', 'light');
@@ -273,26 +298,26 @@ document.getElementById('themeToggle').addEventListener('click', () => {
             },
         });
         
-        rsiChart.applyOptions({
-            layout: {
-                background: { type: 'solid', color: 'white' },
-                textColor: '#1f2937',
-            },
-            grid: {
-                vertLines: {
-                    color: 'rgba(229, 231, 235, 0.8)',
-                },
-                horzLines: {
-                    color: 'rgba(229, 231, 235, 0.8)',
-                },
-            },
-            rightPriceScale: {
-                borderColor: '#e5e7eb',
-            },
-            timeScale: {
-                borderColor: '#e5e7eb',
-            },
-        });
+        // rsiChart.applyOptions({
+        //     layout: {
+        //         background: { type: 'solid', color: 'white' },
+        //         textColor: '#1f2937',
+        //     },
+        //     grid: {
+        //         vertLines: {
+        //             color: 'rgba(229, 231, 235, 0.8)',
+        //         },
+        //         horzLines: {
+        //             color: 'rgba(229, 231, 235, 0.8)',
+        //         },
+        //     },
+        //     rightPriceScale: {
+        //         borderColor: '#e5e7eb',
+        //     },
+        //     timeScale: {
+        //         borderColor: '#e5e7eb',
+        //     },
+        // });
     }
 });
 
@@ -471,10 +496,28 @@ function syncCrosshair(chart, series, dataPoint) {
     chart.clearCrosshairPosition();
 }
 
+const tooltip = document.getElementById('ohlc-tooltip');
+
 chart.subscribeCrosshairMove(param => {
-    const dataPoint = getCrosshairDataPoint(candlestickSeries, param);
-    syncCrosshair(rsiChart, rsiLine, dataPoint);
+  if (!param?.time || !param.seriesData) {
+    tooltip.style.display = 'none';
+    return;
+  }
+  const data = param.seriesData.get(candlestickSeries);
+  if (!data) {
+    tooltip.style.display = 'none';
+    return;
+  }
+
+  tooltip.style.display = 'block';
+  tooltip.innerHTML = `
+    <div><strong>O:</strong> ${data.open}</div>
+    <div><strong>H:</strong> ${data.high}</div>
+    <div><strong>L:</strong> ${data.low}</div>
+    <div><strong>C:</strong> ${data.close}</div>
+  `;
 });
+
 
 rsiChart.subscribeCrosshairMove(param => {
     const dataPoint = getCrosshairDataPoint(rsiLine, param);

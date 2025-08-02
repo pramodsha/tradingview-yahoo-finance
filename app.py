@@ -19,7 +19,7 @@ db.init_app(app)
 
 CSV_FOLDER = 'data'
 
-def fetch_csv_data(ticker, interval='1m', ema_period=20, rsi_period=14):
+def fetch_csv_data(ticker, interval='1m'):
     base_paths = [
         os.path.join(CSV_FOLDER, f"{ticker}_1min.csv"),
         os.path.join(CSV_FOLDER, f"{ticker}_5S.csv")
@@ -52,9 +52,7 @@ def fetch_csv_data(ticker, interval='1m', ema_period=20, rsi_period=14):
             'volume': 'sum'
         }).dropna()
 
-    # Indicators
-    df['EMA'] = ta.ema(df['close'], length=ema_period)
-    df['RSI'] = ta.rsi(df['close'], length=rsi_period)
+    
 
     # Format for frontend
     candlestick_data = [
@@ -67,22 +65,10 @@ def fetch_csv_data(ticker, interval='1m', ema_period=20, rsi_period=14):
         } for ts, row in df.iterrows()
     ]
 
-    ema_data = [
-        {
-            'time': int(ts.timestamp()),
-            'value': row.EMA
-        } for ts, row in df.iterrows() if not pd.isna(row.EMA)
-    ]
-
-    rsi_data = [
-        {
-            'time': int(ts.timestamp()),
-            'value': row.RSI if not pd.isna(row.RSI) else 0
-        } for ts, row in df.iterrows()
-    ]
+    
 
 
-    return candlestick_data, ema_data, rsi_data, 
+    return candlestick_data 
  
 
 # CSV_FOLDER = 'data'
@@ -146,10 +132,10 @@ def fetch_csv_data(ticker, interval='1m', ema_period=20, rsi_period=14):
 def index():
     return render_template('index.html')
 
-@app.route('/api/data/<ticker>/<interval>/<int:ema_period>/<int:rsi_period>')
-def get_data(ticker, interval, ema_period, rsi_period):
-    candlestick_data, ema_data, rsi_data = fetch_csv_data(ticker, interval, ema_period, rsi_period)
-    return jsonify({'candlestick': candlestick_data, 'ema': ema_data, 'rsi': rsi_data})
+@app.route('/api/data/<ticker>/<interval>')
+def get_data(ticker, interval):
+    candlestick_data = fetch_csv_data(ticker, interval)
+    return jsonify({'candlestick': candlestick_data})
 
 # Create database tables on startup if they don't exist
 with app.app_context():
