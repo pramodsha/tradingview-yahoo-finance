@@ -39,7 +39,7 @@ def fetch_csv_data(ticker, interval='1m', ema_period=20, rsi_period=14):
     df = df[['open', 'high', 'low', 'close', 'volume']]
 
     # Limit to recent rows for performance (for 5s: ~4h of data)
-    df = df.tail(3000)
+    # df = df.tail(3000)
 
     # Resample only if the interval is not native
     if interval not in [ '5s']:
